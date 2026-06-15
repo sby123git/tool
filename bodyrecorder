@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>個人減重健康管理助手</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #f5f7fa;
+            color: #333;
+            margin: 0;
+            padding: 15px;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h2, h3 { color: #2c3e50; border-bottom: 2px solid #ecf0f1; padding-bottom: 8px; }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="number"], input[type="date"] {
+            width: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 16px; /* 防止 iOS 輸入時畫面放大 */
+        }
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+            font-weight: bold;
+        }
+        button:hover { background-color: #2980b9; }
+        .result-box {
+            background-color: #e8f4f8;
+            padding: 15px;
+            border-radius: 6px;
+            margin-top: 15px;
+        }
+        .chart-container {
+            margin-top: 30px;
+            position: relative;
+            height: 300px;
+        }
+        .clear-btn {
+            background-color: #e74c3c;
+            margin-top: 20px;
+        }
+        .clear-btn:hover { background-color: #c0392b; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>健康管理助手</h2>
+    
+    <section>
+        <h3>1. 基本資料設定</h3>
+        <div class="form-group">
+            <label>姓名：</label>
+            <input type="text" id="name" placeholder="請輸入姓名">
+        </div>
+        <div class="form-group">
+            <label>身高 (cm)：</label>
+            <input type="number" id="height" step="0.1" placeholder="例如：175">
+        </div>
+        <button onclick="saveProfile()">更新基本資料</button>
+        
+        <div class="result-box" id="profileDisplay" style="display:none;">
+            <p><strong>親愛的 <span id="showName"></span> 病患您好：</strong></p>
+            <p>目前的 BMI 為：<strong id="showBMI" style="color:#e67e22; font-size:1.2em;">--</strong></p>
+        </div>
+    </section>
+
+    <section style="margin-top: 30px;">
+        <h3>2. 新增今日量測數據</h3>
+        <div class="form-group">
+            <label>量測日期：</label>
+            <input type="date" id="recordDate">
+        </div>
+        <div class="form-group">
+            <label>體重 (kg)：</label>
+            <input type="number" id="weight" step="0.1" placeholder="例如：70.5">
+        </div>
+        <div class="form-group">
+            <label>體脂率 (%)：</label>
+            <input type="number" id="bodyFat" step="0.1" placeholder="例如：22.3">
+        </div>
+        <div class="form-group">
+            <label>肌肉量 (kg)：</label>
+            <input type="number" id="muscle" step="0.1" placeholder="例如：31.2">
+        </div>
+        <button onclick="addRecord()" style="background-color: #2ecc71;">新增紀錄並更新圖表</button>
+    </section>
+
+    <section>
+        <h3>3. 歷史趨勢圖</h3>
+        <div class="chart-container">
+            <canvas id="weightChart"></canvas>
+        </div>
+    </section>
+    
+    <button class="clear-btn" onclick="clearAllData()">清除手機內所有紀錄</button>
+</div>
+
+<script>
+    // 初始化日期欄位為今天
+    document.getElementById('recordDate').valueAsDate = new Date();
+
+    // 全局變數
+    let profile = JSON.parse(localStorage.getItem('weight_profile')) || { name: '', height: 0 };
+    let records = JSON.parse(localStorage.getItem('weight_records')) || [];
+    let myChart = null;
+
+    // 頁面載入時初始化
+    window.onload = function() {
+        if(profile.name && profile.height) {
+            document.getElementById('name').value = profile.name;
+            document.getElementById('height').value = profile.height;
+            updateProfileDisplay();
+        }
+        renderChart();
+    };
+
+    // 儲存基本資料並計算 BMI
+    function saveProfile() {
+        const name = document.getElementById('name').value;
+        const height = parseFloat(document.getElementById('height').value);
+
+        if (!name || !height) {
+            alert('請填寫完整的姓名與身高！');
+            return;
+        }
+
+        profile = { name, height };
+        localStorage.setItem('weight_profile', JSON.stringify(profile));
+        updateProfileDisplay();
+        alert('基本資料已更新！');
+    }
+
+    // 更新個人資料與 BMI 顯示
+    function updateProfileDisplay() {
+        if (records.length > 0 && profile.height) {
+            const latestWeight = records[records.length - 1].weight;
+            const heightInMeters = profile.height / 100;
+            const bmi = (latestWeight / (heightInMeters * heightInMeters)).toFixed(1);
+            document.getElementById('showBMI').innerText = bmi;
+        } else {
+            document.getElementById('showBMI').innerText = '需有體重紀錄才可計算';
+        }
+        document.getElementById('showName').innerText = profile.name;
+        document.getElementById('profileDisplay').style.display = 'block';
+    }
+
+    // 新增定期紀錄
+    function addRecord() {
+        const date = document.getElementById('recordDate').value;
+        const weight = parseFloat(document.getElementById('weight').value);
+        const bodyFat = parseFloat(document.getElementById('bodyFat').value);
+        const muscle = parseFloat(document.getElementById('muscle').value);
+
+        if (!date || !weight) {
+            alert('日期與體重為必填項目！');
+            return;
+        }
+
+        const newRecord = { date, weight, bodyFat: bodyFat || null, muscle: muscle || null };
+        
+        // 依日期排序，避免使用者交錯輸入導致圖表錯亂
+        records.push(newRecord);
+        records.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+        localStorage.setItem('weight_records', JSON.stringify(records));
+        
+        // 清空輸入框（保留日期）
+        document.getElementById('weight').value = '';
+        document.getElementById('bodyFat').value = '';
+        document.getElementById('muscle').value = '';
+
+        updateProfileDisplay();
+        renderChart();
+    }
+
+    // 渲染 / 更新圖表
+    function renderChart() {
+        const ctx = document.getElementById('weightChart').getContext('2d');
+        
+        const labels = records.map(r => r.date);
+        const weightData = records.map(r => r.weight);
+        const bodyFatData = records.map(r => r.bodyFat);
+        const muscleData = records.map(r => r.muscle);
+
+        if (myChart) {
+            myChart.destroy(); // 銷毀舊圖表以利重繪
+        }
+
+        myChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: '體重 (kg)',
+                        data: weightData,
+                        borderColor: '#3498db',
+                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
+                        yAxisID: 'y',
+                        tension: 0.2
+                    },
+                    {
+                        label: '體脂率 (%)',
+                        data: bodyFatData,
+                        borderColor: '#e74c3c',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'y1',
+                        tension: 0.2
+                    },
+                    {
+                        label: '肌肉量 (kg)',
+                        data: muscleData,
+                        borderColor: '#2ecc71',
+                        backgroundColor: 'transparent',
+                        yAxisID: 'y',
+                        tension: 0.2
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        type: 'linear',
+                        position: 'left',
+                        title: { display: true, text: '體重 / 肌肉 (kg)' }
+                    },
+                    y1: {
+                        type: 'linear',
+                        position: 'right',
+                        title: { display: true, text: '體脂率 (%)' },
+                        grid: { drawOnChartArea: false } // 避免雙軸網格線重疊
+                    }
+                }
+            }
+        });
+    }
+
+    // 清除資料
+    function clearAllData() {
+        if(confirm('確定要清除手機內的所有歷史紀錄嗎？清除後將無法復原。')) {
+            localStorage.clear();
+            profile = { name: '', height: 0 };
+            records = [];
+            document.getElementById('name').value = '';
+            document.getElementById('height').value = '';
+            document.getElementById('profileDisplay').style.display = 'none';
+            if (myChart) myChart.destroy();
+            alert('資料已完全清除。');
+        }
+    }
+</script>
+
+</body>
+</html>
