@@ -48,6 +48,7 @@
             width: 100%;
             font-size: 16px;
             font-weight: bold;
+            margin-bottom: 10px;
         }
         button:hover { background-color: #2980b9; }
         .result-box {
@@ -57,13 +58,20 @@
             margin-top: 15px;
         }
         .chart-container {
-            margin-top: 30px;
+            margin-top: 20px;
             position: relative;
-            height: 300px;
+            height: 320px;
+            background-color: #ffffff; /* 確保匯出圖片時背景是白的 */
+            padding: 10px;
+            border-radius: 8px;
         }
+        .export-btn {
+            background-color: #9b59b6;
+        }
+        .export-btn:hover { background-color: #8e44ad; }
         .clear-btn {
             background-color: #e74c3c;
-            margin-top: 20px;
+            margin-top: 30px;
         }
         .clear-btn:hover { background-color: #c0392b; }
     </style>
@@ -86,7 +94,7 @@
         <button onclick="saveProfile()">更新基本資料</button>
         
         <div class="result-box" id="profileDisplay" style="display:none;">
-            <p><strong>親愛的 <span id="showName"></span> 病患您好：</strong></p>
+            <p><strong>親愛的 <span id="showName"></span> 您好：</strong></p>
             <p>目前的 BMI 為：<strong id="showBMI" style="color:#e67e22; font-size:1.2em;">--</strong></p>
         </div>
     </section>
@@ -114,7 +122,8 @@
 
     <section>
         <h3>3. 歷史趨勢圖</h3>
-        <div class="chart-container">
+        <button class="export-btn" onclick="exportChartAsJPG()">儲存圖表為 JPG 圖片</button>
+        <div class="chart-container" id="chartWrapper">
             <canvas id="weightChart"></canvas>
         </div>
     </section>
@@ -185,13 +194,11 @@
 
         const newRecord = { date, weight, bodyFat: bodyFat || null, muscle: muscle || null };
         
-        // 依日期排序，避免使用者交錯輸入導致圖表錯亂
         records.push(newRecord);
         records.sort((a, b) => new Date(a.date) - new Date(b.date));
 
         localStorage.setItem('weight_records', JSON.stringify(records));
         
-        // 清空輸入框（保留日期）
         document.getElementById('weight').value = '';
         document.getElementById('bodyFat').value = '';
         document.getElementById('muscle').value = '';
@@ -200,68 +207,130 @@
         renderChart();
     }
 
-    // 渲染 / 更新圖表
+    // 渲染 / 更新圖表 (專為長期、缺失值優化的三折線圖)
     function renderChart() {
         const ctx = document.getElementById('weightChart').getContext('2d');
         
-        const labels = records.map(r => r.date);
-        const weightData = records.map(r => r.weight);
-        const bodyFatData = records.map(r => r.bodyFat);
-        const muscleData = records.map(r => r.muscle);
+        // 如果資料超過 30 筆，預設在手機上只顯示最近的 30 筆，避免畫面過度擁擠
+        const displayRecords = records.length > 30 ? records.slice(-30) : records;
+
+        const labels = displayRecords.map(r => r.date);
+        const weightData = displayRecords.map(r => r.weight);
+        const bodyFatData = displayRecords.map(r => r.bodyFat);
+        const muscleData = displayRecords.map(r => r.muscle);
 
         if (myChart) {
-            myChart.destroy(); // 銷毀舊圖表以利重繪
+            myChart.destroy();
         }
 
         myChart = new Chart(ctx, {
-            type: 'line',
+            type: 'line', 
             data: {
                 labels: labels,
                 datasets: [
                     {
                         label: '體重 (kg)',
                         data: weightData,
-                        borderColor: '#3498db',
-                        backgroundColor: 'rgba(52, 152, 219, 0.1)',
-                        yAxisID: 'y',
-                        tension: 0.2
-                    },
-                    {
-                        label: '體脂率 (%)',
-                        data: bodyFatData,
-                        borderColor: '#e74c3c',
+                        borderColor: '#2980b9', 
                         backgroundColor: 'transparent',
-                        yAxisID: 'y1',
-                        tension: 0.2
+                        borderWidth: 3,
+                        pointRadius: records.length > 40 ? 0 : 3, 
+                        yAxisID: 'y',
+                        spanGaps: true 
                     },
                     {
                         label: '肌肉量 (kg)',
                         data: muscleData,
-                        borderColor: '#2ecc71',
+                        borderColor: '#2ecc71', 
                         backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: records.length > 40 ? 0 : 3,
                         yAxisID: 'y',
-                        tension: 0.2
+                        spanGaps: true 
+                    },
+                    {
+                        label: '體脂率 (%)',
+                        data: bodyFatData,
+                        borderColor: '#e74c3c', 
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        pointRadius: records.length > 40 ? 0 : 3,
+                        yAxisID: 'y1', 
+                        spanGaps: true 
                     }
                 ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                animation: {
+                    duration: 0 // 關閉動畫，確保圖片導出時不會抓到未渲染完的半成品
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false 
+                },
                 scales: {
                     y: {
                         type: 'linear',
                         position: 'left',
-                        title: { display: true, text: '體重 / 肌肉 (kg)' }
+                        title: { display: true, text: '體重 / 肌肉 (kg)' },
+                        ticks: { maxTicksLimit: 6 }
                     },
                     y1: {
                         type: 'linear',
                         position: 'right',
                         title: { display: true, text: '體脂率 (%)' },
-                        grid: { drawOnChartArea: false } // 避免雙軸網格線重疊
+                        grid: { drawOnChartArea: false },
+                        ticks: { maxTicksLimit: 6 }
+                    },
+                    x: {
+                        ticks: {
+                            maxTicksLimit: 5, 
+                            maxRotation: 0,
+                            minRotation: 0
+                        }
                     }
                 }
             }
         });
+    }
+
+    // 輸出圖表為 JPG 圖片功能
+    function exportChartAsJPG() {
+        if (!myChart || records.length === 0) {
+            alert('目前沒有圖表數據可以導出！');
+            return;
+        }
+
+        // 為了避免導出的圖片背景是透明（黑底），我們建立一個白底的暫存畫布來合成
+        const canvas = document.getElementById('weightChart');
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = canvas.width;
+        tempCanvas.height = canvas.height;
+        const tempCtx = tempCanvas.getContext('2d');
+
+        // 填滿白色背景
+        tempCtx.fillStyle = '#ffffff';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        
+        // 將原圖表畫上白底
+        tempCtx.drawImage(canvas, 0, 0);
+
+        // 轉為 JPG DataURL
+        const imageURI = tempCanvas.toDataURL('image/jpeg', 1.0);
+        
+        // 建立隱藏的下載連結
+        const timestamp = new Date().toISOString().slice(0,10);
+        const filename = (profile.name || 'my') + '_健康趨勢圖_' + timestamp + '.jpg';
+        
+        const downloadLink = document.createElement('a');
+        downloadLink.href = imageURI;
+        downloadLink.download = filename;
+        
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
     }
 
     // 清除資料
