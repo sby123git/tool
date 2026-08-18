@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 健保降血脂新制 - 診間快速風險與用藥評估工具</title>
+  <style>
+    :root {
+      --primary: #1e3a8a;
+      --secondary: #2563eb;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --border: #cbd5e1;
+      --text: #0f172a;
+      --accent-red: #dc2626;
+      --accent-green: #16a34a;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 16px;
+      line-height: 1.5;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      color: var(--primary);
+      margin-bottom: 4px;
+      text-align: center;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 0.85rem;
+      color: #64748b;
+      margin-bottom: 16px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 16px;
+    }
+
+    @media (min-width: 768px) {
+      .grid {
+        grid-template-columns: 1fr 1fr;
+      }
+      .full-width {
+        grid-column: span 2;
+      }
+    }
+
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+
+    .card-title {
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 0;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+    }
+
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      font-weight: 600;
+      font-size: 0.9rem;
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    input[type="number"] {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      box-sizing: border-box;
+      font-size: 1rem;
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 0.88rem;
+      font-weight: normal;
+      cursor: pointer;
+    }
+
+    .checkbox-label input {
+      margin-top: 3px;
+      width: 16px;
+      height: 16px;
+    }
+
+    /* 代謝症候群次級選項縮排與樣式 */
+    .sub-checkbox-group {
+      margin-left: 24px;
+      margin-top: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      background-color: #f1f5f9;
+      padding: 8px 12px;
+      border-radius: 6px;
+      border-left: 3px solid #0284c7;
+    }
+
+    .sub-checkbox-label {
+      display: flex;
+      align-items: flex-start;
+      gap: 6px;
+      font-size: 0.82rem;
+      color: #334155;
+      cursor: pointer;
+    }
+
+    .sub-checkbox-label input {
+      margin-top: 2px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .btn {
+      background-color: var(--secondary);
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      font-size: 1rem;
+      font-weight: bold;
+      border-radius: 6px;
+      cursor: pointer;
+      width: 100%;
+      margin-top: 8px;
+      transition: background 0.2s;
+    }
+
+    .btn-reset {
+      background-color: #64748b;
+      margin-top: 12px;
+    }
+
+    /* 成果顯示區域 */
+    .result-card {
+      background: #eff6ff;
+      border: 2px solid var(--secondary);
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-weight: bold;
+      color: white;
+      font-size: 1.1rem;
+    }
+
+    .badge-極高風險 { background-color: #991b1b; }
+    .badge-非常高風險 { background-color: #c2410c; }
+    .badge-高風險 { background-color: #d97706; }
+    .badge-中風險 { background-color: #0284c7; }
+    .badge-低風險 { background-color: #059669; }
+    .badge-零風險 { background-color: #4b5563; }
+
+    .status-box {
+      margin-top: 12px;
+      padding: 12px;
+      border-radius: 6px;
+      font-weight: bold;
+      font-size: 1.05rem;
+    }
+
+    .status-treat {
+      background-color: #fef2f2;
+      color: var(--accent-red);
+      border: 1px solid #fecaca;
+    }
+
+    .status-lifestyle {
+      background-color: #f0fdf4;
+      color: var(--accent-green);
+      border: 1px solid #bbf7d0;
+    }
+
+    .info-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 12px;
+      font-size: 0.9rem;
+    }
+
+    .info-table th, .info-table td {
+      border: 1px solid #cbd5e1;
+      padding: 6px 10px;
+      text-align: left;
+    }
+
+    .info-table th {
+      background-color: #e2e8f0;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>2026 降血脂藥健保新制診間評估工具</h1>
+  <div class="subtitle">生效日期：2026/09/01 ｜ 依據心血管風險分級與 LDL-C 門檻</div>
+
+  <div class="grid">
+    <!-- 輸入數據與特殊風險 -->
+    <div class="card">
+      <div class="card-title">1. 生化數據輸入</div>
+      <div class="form-group">
+        <label for="ldl">LDL-C 數據 (mg/dL)：</label>
+        <input type="number" id="ldl" placeholder="例：130" oninput="onLdlInput()">
+      </div>
+
+      <div class="card-title" style="margin-top: 16px;">2. 重大疾病與影像 (優先判斷)</div>
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" id="extreme_risk" onchange="calculateRisk()">
+          <span><b>【極高風險條件】</b> 冠狀動脈疾病併(1年內/≥2次心肌梗塞/多支阻塞) 或 急性冠心症/周邊動脈/頸動脈合併疾病</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="very_high_risk" onchange="calculateRisk()">
+          <span><b>【非常高風險條件】</b> 曾有急性冠心症、心導管/繞道手術、缺血性中風/TIA，或影像顯示血管狹窄 ≥50%</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 一般風險因子 -->
+    <div class="card">
+      <div class="card-title">3. 高風險器官病史與危險因子</div>
+      
+      <div style="font-size: 0.85rem; color: #d97706; font-weight: bold; margin-bottom: 6px;">【高風險特徵 - 符合一項即屬高風險】</div>
+      <div class="checkbox-group" style="margin-bottom: 12px;">
+        <label class="checkbox-label">
+          <input type="checkbox" id="dm" onchange="calculateRisk()">
+          <span>糖尿病 (DM)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="ckd" onchange="calculateRisk()">
+          <span>透析前慢性腎臟病 (eGFR &lt; 60 或 UACR ≥ 30 持續 ≥ 3個月)</span>
+        </label>
+        <!-- 1. 新增 LDL-C >= 190 於 CAC 前 -->
+        <label class="checkbox-label">
+          <input type="checkbox" id="ldl_190" onchange="calculateRisk()">
+          <span>LDL-C ≥ 190 mg/dL</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="cac" onchange="calculateRisk()">
+          <span>冠狀動脈鈣化分數 (CAC) ≥ 400</span>
+        </label>
+      </div>
+
+      <div style="font-size: 0.85rem; color: #0284c7; font-weight: bold; margin-bottom: 6px;">【一般心血管危險因子 - 用於計算中/低風險】</div>
+      <div class="checkbox-group">
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_htn" onchange="calculateRisk()">
+          <span>高血壓</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_age" onchange="calculateRisk()">
+          <span>年齡（男性 ≥ 45 歲、女性 ≥ 55 歲）</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_fh" onchange="calculateRisk()">
+          <span>早發性冠心病家族史</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_hdl" onchange="calculateRisk()">
+          <span>HDL-C 偏低 (男&lt;40, 女&lt;50 mg/dL)</span>
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_smoking" onchange="calculateRisk()">
+          <span>吸菸</span>
+        </label>
+
+        <!-- 2. 代謝症候群主項與次級項目 -->
+        <label class="checkbox-label">
+          <input type="checkbox" class="rf-check" id="rf_metabolic" onchange="calculateRisk()">
+          <span>代謝症候群 (符合 5 項中至少 3 項)</span>
+        </label>
+
+        <div class="sub-checkbox-group">
+          <label class="sub-checkbox-label">
+            <input type="checkbox" class="met-sub-check" onchange="onMetabolicSubChange()">
+            <span>(1) 男腰圍≧90cm、女腰圍≧80cm</span>
+          </label>
+          <label class="sub-checkbox-label">
+            <input type="checkbox" class="met-sub-check" onchange="onMetabolicSubChange()">
+            <span>(2) 收縮壓≧130 或 舒張壓≧85 mmHg</span>
+          </label>
+          <label class="sub-checkbox-label">
+            <input type="checkbox" class="met-sub-check" onchange="onMetabolicSubChange()">
+            <span>(3) 空腹血糖值≧100 mg/dL</span>
+          </label>
+          <label class="sub-checkbox-label">
+            <input type="checkbox" class="met-sub-check" onchange="onMetabolicSubChange()">
+            <span>(4) 空腹三酸甘油酯≧150 mg/dL</span>
+          </label>
+          <label class="sub-checkbox-label">
+            <input type="checkbox" class="met-sub-check" onchange="onMetabolicSubChange()">
+            <span>(5) 高密度脂蛋白膽固醇偏低：男&lt;40, 女&lt;50 mg/dL</span>
+          </label>
+        </div>
+      </div>
+      
+      <button class="btn btn-reset" onclick="resetForm()">清空所有勾選</button>
+    </div>
+
+    <!-- 結果展示區 -->
+    <div class="card full-width result-card">
+      <div class="result-header">
+        <h2 style="margin:0; font-size: 1.2rem; color: var(--primary);">評估結果</h2>
+        <span id="risk-badge" class="badge badge-零風險">請輸入數據</span>
+      </div>
+
+      <div id="status-box" class="status-box" style="display:none;"></div>
+
+      <table class="info-table">
+        <tr>
+          <th width="30%">風險等級</th>
+          <td id="res-risk-level">-</td>
+        </tr>
+        <tr>
+          <th>健保給付用藥起算門檻 (LDL-C)</th>
+          <td id="res-threshold">-</td>
+        </tr>
+        <tr>
+          <th>治療目標值 (Target)</th>
+          <td id="res-target">-</td>
+        </tr>
+        <tr>
+          <th>建議處方與處置策略</th>
+          <td id="res-strategy">-</td>
+        </tr>
+        <tr>
+          <th>追蹤與驗血時程</th>
+          <td id="res-followup">-</td>
+        </tr>
+      </table>
+    </div>
+  </div>
+</div>
+
+<script>
+// 當 LDL 輸入改變時觸發
+function onLdlInput() {
+  const ldlVal = parseFloat(document.getElementById('ldl').value);
+  const ldl190Cb = document.getElementById('ldl_190');
+
+  // 若輸入 >= 190，自動將 LDL-C >= 190 打勾，否則取消
+  if (!isNaN(ldlVal) && ldlVal >= 190) {
+    ldl190Cb.checked = true;
+  } else {
+    ldl190Cb.checked = false;
+  }
+
+  calculateRisk();
+}
+
+// 當代謝症候群的次級選項改變時觸發
+function onMetabolicSubChange() {
+  const subCbs = document.querySelectorAll('.met-sub-check');
+  let count = 0;
+  subCbs.forEach(cb => { if(cb.checked) count++; });
+
+  const mainMetCb = document.getElementById('rf_metabolic');
+  // 滿 3 項自動勾選主項，否則取消
+  if (count >= 3) {
+    mainMetCb.checked = true;
+  } else {
+    mainMetCb.checked = false;
+  }
+
+  calculateRisk();
+}
+
+function calculateRisk() {
+  const ldl = parseFloat(document.getElementById('ldl').value);
+
+  // 讀取重大疾病勾選狀態
+  const isExtreme = document.getElementById('extreme_risk').checked;
+  const isVeryHigh = document.getElementById('very_high_risk').checked;
+  
+  // 讀取高風險器官與特徵勾選狀態
+  const isDM = document.getElementById('dm').checked;
+  const isCKD = document.getElementById('ckd').checked;
+  const isLDL190 = document.getElementById('ldl_190').checked;
+  const isCAC = document.getElementById('cac').checked;
+
+  // 計算一般危險因子數 (只計算有被勾選的 .rf-check)
+  const rfCheckboxes = document.querySelectorAll('.rf-check');
+  let rfCount = 0;
+  rfCheckboxes.forEach(cb => { if(cb.checked) rfCount++; });
+
+  let riskLevel = "";
+  let threshold = 0;
+  let targetLdl = "";
+  let targetNonHdl = "";
+  let strategy = "";
+  let followup = "";
+
+  // 判定風險等級 (按優先順序短路判斷)
+  if (isExtreme) {
+    riskLevel = "極高風險";
+    threshold = 55;
+    targetLdl = "< 55 mg/dL";
+    targetNonHdl = "< 85 mg/dL";
+  } else if (isVeryHigh) {
+    riskLevel = "非常高風險";
+    threshold = 70;
+    targetLdl = "< 70 mg/dL";
+    targetNonHdl = "< 100 mg/dL";
+  } else if (isDM || isCKD || isLDL190 || isCAC) {
+    riskLevel = "高風險";
+    threshold = 100;
+    targetLdl = "< 100 mg/dL";
+    targetNonHdl = "< 130 mg/dL";
+  } else if (rfCount >= 2) {
+    riskLevel = "中風險";
+    threshold = 115;
+    targetLdl = "< 115 mg/dL";
+    targetNonHdl = "< 145 mg/dL";
+  } else if (rfCount === 1) {
+    riskLevel = "低風險";
+    threshold = 130;
+    targetLdl = "< 130 mg/dL";
+    targetNonHdl = "< 160 mg/dL";
+  } else {
+    riskLevel = "0 項風險因子";
+    threshold = 160;
+    targetLdl = "< 160 mg/dL";
+    targetNonHdl = "未另列";
+  }
+
+  // 更新 Badge 樣式
+  const badge = document.getElementById('risk-badge');
+  badge.className = 'badge';
+  if (riskLevel.includes("極高")) badge.classList.add('badge-極高風險');
+  else if (riskLevel.includes("非常高")) badge.classList.add('badge-非常高風險');
+  else if (riskLevel.includes("高風險")) badge.classList.add('badge-高風險');
+  else if (riskLevel.includes("中風險")) badge.classList.add('badge-中風險');
+  else if (riskLevel.includes("低風險")) badge.classList.add('badge-低風險');
+  else badge.classList.add('badge-零風險');
+  
+  badge.innerText = riskLevel;
+
+  // 判斷用藥與處置建議
+  const statusBox = document.getElementById('status-box');
+  
+  if (isNaN(ldl)) {
+    document.getElementById('res-risk-level').innerText = riskLevel + (rfCount > 0 ? ` (${rfCount}項危險因子)` : '');
+    document.getElementById('res-threshold').innerText = `≥ ${threshold} mg/dL`;
+    document.getElementById('res-target').innerText = `LDL-C ${targetLdl} (non-HDL-C ${targetNonHdl})`;
+    document.getElementById('res-strategy').innerText = "請輸入病人目前 LDL-C 數值以評估健保用藥資格。";
+    document.getElementById('res-followup').innerText = "-";
+    statusBox.style.display = "none";
+    return;
+  }
+
+  const isHighRiskCategory = (riskLevel === "極高風險" || riskLevel === "非常高風險" || riskLevel === "高風險");
+  const meetsThreshold = ldl >= threshold;
+
+  if (meetsThreshold) {
+    statusBox.style.display = "block";
+    statusBox.className = "status-box status-treat";
+    statusBox.innerText = `符合健保給付門檻！(LDL-C ${ldl} ≥ ${threshold} mg/dL)`;
+
+    if (isHighRiskCategory) {
+      strategy = "建議：飲食生活調整與 Statin 藥物治療【可同時開始】。";
+      followup = "開始用藥或調整劑量後 6–8 週抽血追蹤。達標後每 6 個月追蹤一次。";
+    } else {
+      strategy = "建議：宜先給予 3～6 個月飲食生活調整。若調整後 LDL-C 仍未達標，可開立 Statin 藥物。";
+      followup = "開始用藥後 6–8 週抽血追蹤。達標後每 6–12 個月追蹤一次。";
+    }
+  } else {
+    statusBox.style.display = "block";
+    statusBox.className = "status-box status-lifestyle";
+    statusBox.innerText = `未達健保藥物給付門檻 (LDL-C ${ldl} < ${threshold} mg/dL)`;
+
+    strategy = "建議：持續進行飲食與生活型態調整，暫無需/不符健保給付開立降血脂藥物。";
+    followup = isHighRiskCategory ? "建議每 3–6 個月追蹤血脂數值。" : "建議每 6–12 個月或於年度健檢時追蹤。";
+  }
+
+  // 填寫結果表格
+  document.getElementById('res-risk-level').innerText = riskLevel + (!isHighRiskCategory && rfCount > 0 ? ` (符合 ${rfCount} 項危險因子)` : '');
+  document.getElementById('res-threshold').innerText = `≥ ${threshold} mg/dL`;
+  document.getElementById('res-target').innerText = `LDL-C ${targetLdl} (non-HDL-C ${targetNonHdl})`;
+  document.getElementById('res-strategy').innerText = strategy;
+  document.getElementById('res-followup').innerText = followup;
+}
+
+function resetForm() {
+  document.getElementById('ldl').value = '';
+  const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+  checkboxes.forEach(cb => cb.checked = false);
+  calculateRisk();
+}
+
+// 初始化執行一次
+calculateRisk();
+</script>
+
+</body>
+</html>
